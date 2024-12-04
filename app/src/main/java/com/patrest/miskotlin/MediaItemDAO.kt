@@ -15,7 +15,7 @@ interface MediaItemDao {
     suspend fun getAllMediaItems(): List<MediaItem>
 
     @Update
-    suspend fun update(mediaItem: MediaItem)  // Update an existing item
+    suspend fun update(mediaItem: MediaItem)
     @Delete
     suspend fun delete(mediaItem: MediaItem)
 }
