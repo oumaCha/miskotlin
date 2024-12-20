@@ -31,18 +31,18 @@ fun MediaReadView(
             TopAppBar(
                 title = { Text(mediaItem.title, color = Color.White) },
                 navigationIcon = {
-                    IconButton(onClick = onMenuClick) { // Botão de menu sanduíche
+                    IconButton(onClick = onMenuClick) {
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_sandwich), // Ícone de sanduíche
+                            painter = painterResource(id = R.drawable.ic_sandwich),
                             contentDescription = "Menu",
                             tint = Color.White
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = onDelete) { // Botão de deletar
+                    IconButton(onClick = onDelete) {
                         Icon(
-                            painter = painterResource(id = R.drawable.ic_delete_white), // Ícone de deletar
+                            painter = painterResource(id = R.drawable.ic_delete_white),
                             contentDescription = "Delete",
                             tint = Color.White
                         )
