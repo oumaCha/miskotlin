@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,6 +34,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
@@ -46,16 +48,19 @@ import java.util.Locale
 @Composable
 fun MediaItemList(
     viewModel: MediaViewModel,
-    onItemSelected: (MediaItem) -> Unit
+    onItemSelected: (MediaItem) -> Unit,
+    onImageSelect: () -> Unit
 ) {
     val mediaItems by viewModel.mediaItems.collectAsState()
     val showActionMenu by viewModel.showActionMenu.collectAsState()
     val actionMenuItem by viewModel.actionMenuItem.collectAsState()
     val showEditDialog by viewModel.showEditDialog.collectAsState()
+    val showCreateDialog by viewModel.showCreateDialog.collectAsState()
+    val titleCounter by viewModel.titleCounter.collectAsState()
 
     Scaffold(
         topBar = {
-            MediaTopBar(onAddClick = { viewModel.addNewItem() })
+            MediaTopBar(onAddClick = { viewModel.openCreateDialog() })
         },
         content = { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
@@ -68,7 +73,7 @@ fun MediaItemList(
                     items(mediaItems) { item ->
                         MediaItemRow(
                             item = item,
-                            onItemClick = { onItemSelected(item) }, // ReadView
+                            onItemClick = { onItemSelected(item) },
                             onOptionsClick = { viewModel.openActionMenuDialog(item) } // Dialog
                         )
                     }
@@ -78,7 +83,7 @@ fun MediaItemList(
                     ActionMenuDialog(
                         item = actionMenuItem!!,
                         onDismiss = { viewModel.closeDialogs() },
-                        onDelete = { viewModel.deleteItem(actionMenuItem) },
+                        onDelete = {  viewModel.requestDeleteConfirmation(actionMenuItem!!) },
                         onEdit = { viewModel.openEditDialog() }
                     )
                 }
@@ -88,6 +93,18 @@ fun MediaItemList(
                         item = actionMenuItem!!,
                         onDismiss = { viewModel.closeDialogs() },
                         onSave = { updatedItem -> viewModel.saveEditedItem(updatedItem) }
+                    )
+                }
+
+                if (showCreateDialog) {
+                    CreateMediaItemDialog(
+                        defaultTitle = "Media Item $titleCounter",
+                        onDismiss = { viewModel.closeCreateDialog() },
+                        onSave = { title, imagePath ->
+                            viewModel.addNewItem(title, imagePath)
+                        },
+                        onImageClick = onImageSelect,
+                        selectedImagePath = viewModel.selectedImagePath.collectAsState().value
                     )
                 }
             }
@@ -121,10 +138,8 @@ fun MediaItemRow(
                         .padding(end = 8.dp)
                 )
 
-                // Espaçamento entre a imagem e o texto
                 Spacer(modifier = Modifier.width(8.dp))
 
-                // Título e Data
                 Column {
                     Text(
                         text = item.title,
@@ -139,7 +154,6 @@ fun MediaItemRow(
                 }
             }
 
-            // Ícone "Options" no lado direito
             IconButton(onClick = onOptionsClick) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_options),
@@ -149,7 +163,6 @@ fun MediaItemRow(
             }
         }
 
-        // Linha Separadora
         HorizontalDivider(
             color = Color.Gray,
             thickness = 0.5.dp,
@@ -257,5 +270,93 @@ fun EditMediaItemDialog(
         }
     )
 }
+
+@Composable
+fun CreateMediaItemDialog(
+    defaultTitle: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String?) -> Unit,
+    onImageClick: () -> Unit,
+    selectedImagePath: String?
+) {
+    var title by remember { mutableStateOf(defaultTitle) }
+    var showError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Neues Medium") },
+        text = {
+            Column {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TextField(
+                        value = title,
+                        onValueChange = {
+                            title = it
+                            showError = it.isBlank()
+                        },
+                        label = { Text("Titel") },
+                        isError = showError,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(
+                        onClick = {
+                            onImageClick()
+                        }
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.baseline_camera),
+                            contentDescription = "Bild auswählen"
+                        )
+                    }
+                }
+
+                if (showError) {
+                    Text(
+                        text = "Titel: Eingabe erforderlich",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (selectedImagePath != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(selectedImagePath),
+                        contentDescription = "Vorschaubild",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(150.dp)
+                            .padding(8.dp)
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (title.isNotBlank()) {
+                        onSave(title, selectedImagePath)
+                        onDismiss()
+                    } else {
+                        showError = true
+                    }
+                }
+            ) {
+                Text("Erstellen")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Abbrechen", color = Color.Gray)
+            }
+        }
+    )
+}
+
+
 
 

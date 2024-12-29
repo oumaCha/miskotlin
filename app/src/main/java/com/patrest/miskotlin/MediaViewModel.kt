@@ -1,9 +1,12 @@
 package com.patrest.miskotlin
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
 
 class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
 
@@ -25,6 +28,20 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     private val _titleCounter = MutableStateFlow(1)
     val titleCounter: StateFlow<Int> get() = _titleCounter
 
+    private val _showCreateDialog = MutableStateFlow(false)
+    val showCreateDialog: StateFlow<Boolean> get() = _showCreateDialog
+
+    private val _selectedImagePath = MutableStateFlow<String?>(null)
+    val selectedImagePath: StateFlow<String?> get() = _selectedImagePath
+
+    private val _showDeleteConfirmDialog = MutableStateFlow(false)
+    val showDeleteConfirmDialog: StateFlow<Boolean> get() = _showDeleteConfirmDialog
+
+    private val _itemToDelete = MutableStateFlow<MediaItem?>(null)
+    val itemToDelete: StateFlow<MediaItem?> get() = _itemToDelete
+
+
+
     init {
         loadMediaItems()
     }
@@ -36,18 +53,46 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         }
     }
 
-    fun addNewItem() {
+    fun selectImage(context: Context, imageUri: String) {
+        viewModelScope.launch {
+            try {
+                val contentResolver = context.contentResolver
+                val inputStream = contentResolver.openInputStream(Uri.parse(imageUri))
+                val file = File(context.filesDir, "selected_image_${System.currentTimeMillis()}.jpg")
+
+                inputStream?.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                // Salva o caminho absoluto
+                _selectedImagePath.value = file.absolutePath
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+
+    fun addNewItem(
+        title: String = "Media Item ${_titleCounter.value}",
+        imagePath: String? = null
+    ) {
         viewModelScope.launch {
             val size = (100..300).random()
+            val finalPath = imagePath ?: "https://picsum.photos/$size/$size"
             val newItem = MediaItem(
-                title = "Media Item ${_titleCounter.value}",
-                source = "https://picsum.photos/$size/$size",
+                title = title,
+                source = finalPath,
                 createdDate = System.currentTimeMillis()
             )
             dao.insert(newItem)
             loadMediaItems()
         }
     }
+
+
 
     // ReadView
     fun selectMediaItem(item: MediaItem?) {
@@ -60,13 +105,30 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         _showActionMenu.value = true
     }
 
-    fun deleteItem(item: MediaItem?) {
+
+    fun requestDeleteConfirmation(item: MediaItem) {
+        _showActionMenu.value = false
+        _actionMenuItem.value = null
+
+        _itemToDelete.value = item
+        _showDeleteConfirmDialog.value = true
+    }
+
+
+    fun confirmDelete() {
         viewModelScope.launch {
-            item?.let { dao.delete(it) }
-            loadMediaItems()
-            closeDialogs()
-            _selectedItem.value = null
+            _itemToDelete.value?.let { item ->
+                dao.delete(item)
+                loadMediaItems()
+            }
+            _showDeleteConfirmDialog.value = false
+            _itemToDelete.value = null
         }
+    }
+
+    fun dismissDeleteConfirmation() {
+        _showDeleteConfirmDialog.value = false
+        _itemToDelete.value = null
     }
 
     fun openEditDialog() {
@@ -85,5 +147,13 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
             loadMediaItems()
             closeDialogs()
         }
+    }
+
+    fun openCreateDialog() {
+        _showCreateDialog.value = true
+    }
+
+    fun closeCreateDialog() {
+        _showCreateDialog.value = false
     }
 }
