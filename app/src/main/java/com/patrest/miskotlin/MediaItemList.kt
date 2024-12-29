@@ -83,7 +83,7 @@ fun MediaItemList(
                     ActionMenuDialog(
                         item = actionMenuItem!!,
                         onDismiss = { viewModel.closeDialogs() },
-                        onDelete = { viewModel.deleteItem(actionMenuItem) },
+                        onDelete = {  viewModel.requestDeleteConfirmation(actionMenuItem!!) },
                         onEdit = { viewModel.openEditDialog() }
                     )
                 }

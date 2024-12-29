@@ -34,6 +34,14 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     private val _selectedImagePath = MutableStateFlow<String?>(null)
     val selectedImagePath: StateFlow<String?> get() = _selectedImagePath
 
+    private val _showDeleteConfirmDialog = MutableStateFlow(false)
+    val showDeleteConfirmDialog: StateFlow<Boolean> get() = _showDeleteConfirmDialog
+
+    private val _itemToDelete = MutableStateFlow<MediaItem?>(null)
+    val itemToDelete: StateFlow<MediaItem?> get() = _itemToDelete
+
+
+
     init {
         loadMediaItems()
     }
@@ -48,7 +56,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     fun selectImage(context: Context, imageUri: String) {
         viewModelScope.launch {
             try {
-                // Converte o URI para um caminho acessível no armazenamento interno
                 val contentResolver = context.contentResolver
                 val inputStream = contentResolver.openInputStream(Uri.parse(imageUri))
                 val file = File(context.filesDir, "selected_image_${System.currentTimeMillis()}.jpg")
@@ -98,13 +105,30 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         _showActionMenu.value = true
     }
 
-    fun deleteItem(item: MediaItem?) {
+
+    fun requestDeleteConfirmation(item: MediaItem) {
+        _showActionMenu.value = false
+        _actionMenuItem.value = null
+
+        _itemToDelete.value = item
+        _showDeleteConfirmDialog.value = true
+    }
+
+
+    fun confirmDelete() {
         viewModelScope.launch {
-            item?.let { dao.delete(it) }
-            loadMediaItems()
-            closeDialogs()
-            _selectedItem.value = null
+            _itemToDelete.value?.let { item ->
+                dao.delete(item)
+                loadMediaItems()
+            }
+            _showDeleteConfirmDialog.value = false
+            _itemToDelete.value = null
         }
+    }
+
+    fun dismissDeleteConfirmation() {
+        _showDeleteConfirmDialog.value = false
+        _itemToDelete.value = null
     }
 
     fun openEditDialog() {

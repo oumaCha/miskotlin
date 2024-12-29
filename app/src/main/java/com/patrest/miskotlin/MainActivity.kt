@@ -41,6 +41,20 @@ class MainActivity : ComponentActivity() {
 fun MediaApp(viewModel: MediaViewModel, onImageSelect: () -> Unit) {
     val selectedMediaItem by viewModel.selectedItem.collectAsState()
 
+    val showDeleteDialog by viewModel.showDeleteConfirmDialog.collectAsState()
+    val itemToDelete by viewModel.itemToDelete.collectAsState()
+
+    if (showDeleteDialog) {
+        val item = itemToDelete
+        if (item != null) {
+            DeleteConfirmDialog(
+                itemTitle = item.title,
+                onDismiss = { viewModel.dismissDeleteConfirmation() },
+                onConfirm = { viewModel.confirmDelete() }
+            )
+        }
+    }
+
     Scaffold(
         content = { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
@@ -49,7 +63,7 @@ fun MediaApp(viewModel: MediaViewModel, onImageSelect: () -> Unit) {
                         mediaItem = selectedMediaItem!!,
                         onMenuClick = { /* Menu action */ },
                         onBack = { viewModel.selectMediaItem(null) },
-                        onDelete = { viewModel.deleteItem(selectedMediaItem) }
+                        onDelete = { viewModel.requestDeleteConfirmation(selectedMediaItem!!) }
                     )
                 } else {
                     MediaItemList(
