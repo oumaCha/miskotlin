@@ -47,7 +47,7 @@ fun MediaApp(db: AppDatabase) {
     var mediaItems by remember { mutableStateOf(emptyList<MediaItem>()) }
     var titleCounter by remember { mutableIntStateOf(1) } // Counter to increment the title number
 
-    // Carregar dados do banco de dados ao inicializar
+
     LaunchedEffect(Unit) {
         scope.launch {
             mediaItems = db.mediaItemDao().getAllMediaItems()
