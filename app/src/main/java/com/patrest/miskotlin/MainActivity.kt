@@ -63,7 +63,6 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun KarteScreen(navController: NavHostController) {
-    // Here you can implement your map or content for the "Karte" screen
     Text(text = "Welcome to the Karte screen")
 }
 
@@ -103,23 +102,39 @@ fun MediaApp(
                 // Navigation Host
                 NavHost(
                     navController = navController,
-                    startDestination = "medien", // Set initial screen to "medien"
+                    startDestination = "medien",
                     modifier = Modifier.padding(innerPadding)
                 ) {
                     composable("medien") {
-                        // Medien screen
                         MediaItemList(
                             viewModel = viewModel,
-                            onItemSelected = { item -> viewModel.selectMediaItem(item) },
+                            navController = navController,
                             onImageSelect = onImageSelect,
-                            onSideMenuToggle = onSideMenuToggle // Pass onSideMenuToggle here as well
+                            onSideMenuToggle = onSideMenuToggle
                         )
                     }
                     composable("karte") {
-                        // Karte screen
-                        KarteScreen(navController) // Replace with your Karte screen composable
+                        KarteScreen(navController)
+                    }
+                    composable("readview/{itemId}") { backStackEntry ->
+                        val itemId = backStackEntry.arguments?.getString("itemId")?.toIntOrNull()
+                        MediaReadView(
+                            itemId = itemId,
+                            viewModel = viewModel,
+                            onMenuClick = onSideMenuToggle,
+                            onDelete = {
+                                itemId?.let {
+                                    val item = viewModel.mediaItems.value.find { mediaItem -> mediaItem.id.toInt() == itemId }
+                                    if (item != null) {
+                                        viewModel.requestDeleteConfirmation(item)
+                                    }
+                                }
+                            },
+                            onBack = { navController.popBackStack() }
+                        )
                     }
                 }
+
 
                 // Conditionally show the side menu if the state is true
                 if (isSideMenuVisible) {

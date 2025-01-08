@@ -72,8 +72,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
                         input.copyTo(output)
                     }
                 }
-
-                // Salva o caminho absoluto
                 _selectedImagePath.value = file.absolutePath
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -85,8 +83,8 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     fun addNewItem(
         title: String = "Media Item ${_titleCounter.value}",
         imagePath: String? = null,
-        latitude: Double = 0.0, // Default latitude
-        longitude: Double = 0.0 // Default longitude
+        latitude: Double = 0.0,
+        longitude: Double = 0.0
     ) {
         viewModelScope.launch {
             val size = (100..300).random()

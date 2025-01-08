@@ -42,13 +42,17 @@ import androidx.compose.ui.unit.dp
 import coil.compose.rememberAsyncImagePainter
 import java.text.SimpleDateFormat
 import java.util.Locale
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MediaItemList(
     viewModel: MediaViewModel,
-    onItemSelected: (MediaItem) -> Unit,
+    navController: NavHostController,
     onImageSelect: () -> Unit,
     onSideMenuToggle: () -> Unit
 ) {
@@ -75,7 +79,7 @@ fun MediaItemList(
                     items(mediaItems) { item ->
                         MediaItemRow(
                             item = item,
-                            onItemClick = { onItemSelected(item) },
+                            onItemClick = { navController.navigate("readview/${item.id}") },
                             onOptionsClick = { viewModel.openActionMenuDialog(item) }
                         )
                     }
@@ -181,12 +185,11 @@ fun MediaTopBar(onAddClick: () -> Unit, onMenuClick: () -> Unit) {
     TopAppBar(
         title = { Text(text = "Medien", color = Color.White) },
         navigationIcon = {
-            // Wrap the IconButton in a clickable modifier to make the whole area clickable
             Box(
                 modifier = Modifier
-                    .padding(start = 8.dp) // Adjust padding if needed
-                    .clickable { onMenuClick() } // Make the whole area clickable
-                    .padding(8.dp) // Add padding for spacing around the icon
+                    .padding(start = 8.dp)
+                    .clickable { onMenuClick() }
+                    .padding(8.dp)
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_sandwich),
