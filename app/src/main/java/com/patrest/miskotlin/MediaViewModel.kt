@@ -79,18 +79,33 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         }
     }
 
+    fun selectImageWithLocation(imageUri: String, latitude: Double, longitude: Double) {
+        viewModelScope.launch {
+            try {
+                val newItem = MediaItem(
+                    title = "Media Item ${_titleCounter.value}",
+                    source = imageUri,
+                    createdDate = System.currentTimeMillis(),
+                    latitude = latitude,
+                    longitude = longitude
+                )
+                dao.insert(newItem)
+                loadMediaItems()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     fun addNewItem(
-        title: String = "Media Item ${_titleCounter.value}",
+        title: String,
         imagePath: String? = null,
-        latitude: Double = 0.0,
-        longitude: Double = 0.0
+        latitude: Double = 52.545995,
+        longitude: Double = 13.351148
     ) {
         viewModelScope.launch {
             val size = (100..300).random()
             val finalPath = imagePath ?: "https://picsum.photos/$size/$size"
-
-
 
             val newItem = MediaItem(
                 title = title,
@@ -115,6 +130,10 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     fun openActionMenuDialog(item: MediaItem) {
         _actionMenuItem.value = item
         _showActionMenu.value = true
+    }
+
+    fun clearSelectedImagePath() {
+        _selectedImagePath.value = null
     }
 
 

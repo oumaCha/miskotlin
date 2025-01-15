@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation (libs.play.services.maps)
     implementation (libs.maps.compose)
+    implementation(libs.play.services.location)
     implementation(libs.androidx.navigation.runtime.ktx)
     testImplementation(libs.junit)
     implementation (libs.osmdroid.android)
@@ -67,7 +68,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    // Dependências do Room
+    // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.room.compiler)

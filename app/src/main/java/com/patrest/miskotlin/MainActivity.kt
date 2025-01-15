@@ -1,8 +1,13 @@
 
 package com.patrest.miskotlin
 
+
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Location
 import android.net.Uri
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,66 +15,137 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.room.Room
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.tooling.preview.Preview
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import android.util.Log
+
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 
 class MainActivity : ComponentActivity() {
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var db: AppDatabase
     private lateinit var viewModel: MediaViewModel
+
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            viewModel.selectImage(this, it.toString())
+        uri?.let { imageUri ->
+            viewModel.selectImage(this, imageUri.toString())
         }
     }
+
+    private fun handleSave(title: String, imagePath: String?) {
+        if (checkLocationPermission()) {
+            getLastKnownLocation { location ->
+                val lat = location?.latitude ?: 52.545995
+                val lng = location?.longitude ?: 13.351148
+                viewModel.addNewItem(title, imagePath, lat, lng)
+                viewModel.clearSelectedImagePath()
+            }
+        } else {
+            requestLocationPermission()
+        }
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "media-database").addMigrations(MIGRATION_1_2).build()
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
 
-        viewModel = ViewModelProvider(this, ViewModelFactory(db.mediaItemDao()))[MediaViewModel::class.java]
+        db = Room.databaseBuilder(
+            applicationContext,
+            AppDatabase::class.java,
+            "media-database"
+        ).addMigrations(MIGRATION_1_2).build()
+
+        viewModel = ViewModelProvider(
+            this,
+            ViewModelFactory(db.mediaItemDao())
+        )[MediaViewModel::class.java]
+
+        lifecycleScope.launch {
+            viewModel.mediaItems.collectLatest { mediaList ->
+                Log.d("MainActivity", "Loaded Media Items: $mediaList")
+            }
+        }
+
 
         setContent {
-            // Initialize NavController
             val navController = rememberNavController()
 
-            // State to toggle the side menu visibility
             var isSideMenuVisible by remember { mutableStateOf(false) }
 
-            // MediaApp composable
             MediaApp(
                 viewModel = viewModel,
                 isSideMenuVisible = isSideMenuVisible,
                 onSideMenuToggle = { isSideMenuVisible = !isSideMenuVisible },
                 onImageSelect = { pickImageLauncher.launch("image/*") },
-                navController = navController // Pass NavController to the MediaApp
+                navController = navController,
+                onSaveMediaItem = { title, imagePath -> handleSave(title, imagePath) }
             )
         }
     }
-}
 
-@Composable
-fun KarteScreen(navController: NavHostController) {
-    Text(text = "Welcome to the Karte screen")
-}
+    private fun checkLocationPermission(): Boolean {
+        return ActivityCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+    }
 
-@Preview
-@Composable
-fun PreviewKarteScreen() {
-    KarteScreen(navController = rememberNavController())
+    private fun requestLocationPermission() {
+        requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+    }
+
+    private fun getLastKnownLocation(onLocationReceived: (Location?) -> Unit) {
+        try {
+            if (checkLocationPermission()) {
+                fusedLocationClient.lastLocation
+                    .addOnSuccessListener { location: Location? ->
+                        onLocationReceived(location)
+                    }
+                    .addOnFailureListener { exception ->
+                        Log.e("MainActivity", "Error obtaining location: ${exception.message}")
+                        onLocationReceived(null)
+                    }
+            } else {
+                Log.e("MainActivity", "Location permission not granted")
+                onLocationReceived(null)
+            }
+        } catch (e: SecurityException) {
+            Log.e("MainActivity", "Location permission not granted")
+            onLocationReceived(null)
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,9 +155,10 @@ fun MediaApp(
     isSideMenuVisible: Boolean,
     onSideMenuToggle: () -> Unit,
     onImageSelect: () -> Unit,
-    navController: NavHostController // Accept NavController as a parameter
+    navController: NavHostController,
+    onSaveMediaItem: (String, String?) -> Unit,
 ) {
-    val selectedMediaItem by viewModel.selectedItem.collectAsState()
+    // val selectedMediaItem by viewModel.selectedItem.collectAsState()
     val showDeleteDialog by viewModel.showDeleteConfirmDialog.collectAsState()
     val itemToDelete by viewModel.itemToDelete.collectAsState()
 
@@ -99,7 +176,6 @@ fun MediaApp(
     Scaffold(
         content = { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
-                // Navigation Host
                 NavHost(
                     navController = navController,
                     startDestination = "medien",
@@ -110,12 +186,18 @@ fun MediaApp(
                             viewModel = viewModel,
                             navController = navController,
                             onImageSelect = onImageSelect,
-                            onSideMenuToggle = onSideMenuToggle
+                            onSideMenuToggle = onSideMenuToggle,
+                            onSaveMediaItem = onSaveMediaItem
                         )
                     }
                     composable("karte") {
-                        KarteScreen(navController)
+                        val mediaItems by viewModel.mediaItems.collectAsState()
+                        MapScreen(
+                            mediaItems = mediaItems,
+                            onMenuClick = onSideMenuToggle
+                        )
                     }
+
                     composable("readview/{itemId}") { backStackEntry ->
                         val itemId = backStackEntry.arguments?.getString("itemId")?.toIntOrNull()
                         MediaReadView(
@@ -135,23 +217,20 @@ fun MediaApp(
                     }
                 }
 
-
-                // Conditionally show the side menu if the state is true
                 if (isSideMenuVisible) {
                     SideMenu(
                         navController = navController,
                         onMenuItemClick = { menuItem ->
-                            // Navigate and dismiss the sidebar
                             when (menuItem) {
-                                "medien" -> navController.navigate("medien")
                                 "karte" -> navController.navigate("karte")
+                                "medien" -> navController.navigate("medien")
                             }
-                            onSideMenuToggle() // Close the sidebar
+                            onSideMenuToggle()
                         },
                         modifier = Modifier
                             .fillMaxWidth(0.75f)
                             .fillMaxHeight()
-                            .background(Color.DarkGray) // Apply background
+                            .background(Color.DarkGray)
                     )
                 }
             }

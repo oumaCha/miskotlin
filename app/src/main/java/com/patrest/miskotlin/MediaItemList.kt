@@ -54,7 +54,8 @@ fun MediaItemList(
     viewModel: MediaViewModel,
     navController: NavHostController,
     onImageSelect: () -> Unit,
-    onSideMenuToggle: () -> Unit
+    onSideMenuToggle: () -> Unit,
+    onSaveMediaItem: (String, String?) -> Unit
 ) {
     val mediaItems by viewModel.mediaItems.collectAsState()
     val showActionMenu by viewModel.showActionMenu.collectAsState()
@@ -106,9 +107,10 @@ fun MediaItemList(
                     CreateMediaItemDialog(
                         defaultTitle = "Media Item $titleCounter",
                         onDismiss = { viewModel.closeCreateDialog() },
-                        onSave = { title, imagePath -> viewModel.addNewItem(title, imagePath) },
+                        onSave = onSaveMediaItem,
                         onImageClick = onImageSelect,
-                        selectedImagePath = viewModel.selectedImagePath.collectAsState().value
+                        selectedImagePath = viewModel.selectedImagePath.collectAsState().value,
+                        clearImagePath = { viewModel.clearSelectedImagePath() }
                     )
                 }
             }
@@ -134,7 +136,6 @@ fun MediaItemRow(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row {
-                // Imagem à esquerda
                 Image(
                     painter = rememberAsyncImagePainter(item.source),
                     contentDescription = "Media Item Image",
@@ -288,7 +289,8 @@ fun CreateMediaItemDialog(
     onDismiss: () -> Unit,
     onSave: (String, String?) -> Unit,
     onImageClick: () -> Unit,
-    selectedImagePath: String?
+    selectedImagePath: String?,
+    clearImagePath: () -> Unit
 ) {
     var title by remember { mutableStateOf(defaultTitle) }
     var showError by remember { mutableStateOf(false) }
@@ -351,6 +353,7 @@ fun CreateMediaItemDialog(
                 onClick = {
                     if (title.isNotBlank()) {
                         onSave(title, selectedImagePath)
+                        clearImagePath()
                         onDismiss()
                     } else {
                         showError = true

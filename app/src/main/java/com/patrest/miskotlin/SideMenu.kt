@@ -56,8 +56,8 @@ fun SideMenu(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable {
-                    onMenuItemClick("karte") // Handle click and dismiss the sidebar
-                    navController.navigate("map") // Navigate to MapScreen (actual map)
+                    onMenuItemClick("karte")
+                    navController.navigate("karte")
                 }
                 .padding(8.dp)
         ) {

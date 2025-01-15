@@ -9,6 +9,6 @@ data class MediaItem(
     val title: String,
     val source: String,
     val createdDate: Long = System.currentTimeMillis(),
-    val latitude: Double? = null,  // Latitude of the location, nullable if not available
-    val longitude: Double? = null  // Longitude of the location, nullable if not available
+    val latitude: Double?,
+    val longitude: Double?
 )
