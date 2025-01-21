@@ -1,41 +1,31 @@
-
 package com.patrest.miskotlin
 
-
 import android.Manifest
-import android.content.pm.PackageManager
-import android.location.Location
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.core.app.ActivityCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import androidx.room.Room
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
-import android.util.Log
-
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.Flow
+import com.google.android.gms.maps.model.LatLng
+import com.patrest.miskotlin.data.AppDatabase
+import com.patrest.miskotlin.data.MIGRATION_1_2
+import com.patrest.miskotlin.utils.PermissionUtils
+import com.patrest.miskotlin.utils.PermissionUtils.getLastKnownLocation
+import com.patrest.miskotlin.viewmodel.MediaViewModel
+import com.patrest.miskotlin.viewmodel.ViewModelFactory
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
 
 class MainActivity : ComponentActivity() {
 
@@ -43,43 +33,99 @@ class MainActivity : ComponentActivity() {
     private lateinit var db: AppDatabase
     private lateinit var viewModel: MediaViewModel
 
-
-    private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
-            Toast.makeText(this, "Location permission granted", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
-        }
-    }
+    private lateinit var requestPermissionsLauncher: ActivityResultLauncher<Array<String>>
 
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { imageUri ->
-            viewModel.selectImage(this, imageUri.toString())
+            viewModel.selectImage(this, imageUri)
         }
     }
 
     private fun handleSave(title: String, imagePath: String?) {
-        if (checkLocationPermission()) {
-            getLastKnownLocation { location ->
-                val lat = location?.latitude ?: 52.545995
-                val lng = location?.longitude ?: 13.351148
-                viewModel.addNewItem(title, imagePath, lat, lng)
+        if (PermissionUtils.checkLocationPermission(this)) {
+            getLastKnownLocation(this) { location ->
+                val deviceLatitude = location?.latitude ?: 52.545995
+                val deviceLongitude = location?.longitude ?: 13.351148
+
+                val imageLatitude = viewModel.selectedImageLocation.value?.first
+                val imageLongitude = viewModel.selectedImageLocation.value?.second
+
+                Log.d(
+                    "handleSave",
+                    "Device Location: Latitude=$deviceLatitude, Longitude=$deviceLongitude"
+                )
+                Log.d(
+                    "handleSave",
+                    "Image Location: Latitude=$imageLatitude, Longitude=$imageLongitude"
+                )
+
+                viewModel.addNewItem(
+                    title,
+                    imagePath,
+                    latitude = imageLatitude ?: deviceLatitude,
+                    longitude = imageLongitude ?: deviceLongitude
+                )
                 viewModel.clearSelectedImagePath()
             }
         } else {
-            requestLocationPermission()
+            PermissionUtils.requestLocationPermission(this)
         }
     }
 
+    private fun setupContent(deviceLocation: LatLng) {
+        setContent {
+            val navController = rememberNavController()
+
+            var isSideMenuVisible by remember { mutableStateOf(false) }
+
+            MediaApp(
+                viewModel = viewModel,
+                isSideMenuVisible = isSideMenuVisible,
+                onSideMenuToggle = { isSideMenuVisible = !isSideMenuVisible },
+                onImageSelect = { pickImageLauncher.launch("image/*") },
+                navController = navController,
+                onSaveMediaItem = { title, imagePath -> handleSave(title, imagePath) },
+                deviceLocation = deviceLocation
+            )
+        }
+    }
+
+    private fun fetchLastKnownLocation() {
+        getLastKnownLocation(this) { location ->
+            if (location != null) {
+                Log.d("MainActivity", "Latitude: ${location.latitude}, Longitude: ${location.longitude}")
+            } else {
+                Toast.makeText(this, "Failed to fetch location", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        if (!PermissionUtils.checkLocationPermission(this)) {
+            PermissionUtils.requestLocationPermission(this)
+            return
+        }
+
+        requestPermissionsLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { permissions ->
+            val readImagesGranted = permissions[Manifest.permission.READ_MEDIA_IMAGES] == true
+            val locationGranted = permissions[Manifest.permission.ACCESS_MEDIA_LOCATION] == true
+
+            if (readImagesGranted && locationGranted) {
+                Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        requestMediaPermissions()
 
         db = Room.databaseBuilder(
             applicationContext,
@@ -93,147 +139,46 @@ class MainActivity : ComponentActivity() {
         )[MediaViewModel::class.java]
 
         lifecycleScope.launch {
+            viewModel.mediaItemsWithLocation.collectLatest { mediaList ->
+                Log.d("MainActivity", "Loaded Media Items with Location: $mediaList")
+            }
+        }
+
+        lifecycleScope.launch {
             viewModel.mediaItems.collectLatest { mediaList ->
                 Log.d("MainActivity", "Loaded Media Items: $mediaList")
             }
         }
 
+        PermissionUtils.requestLocationPermission(
+            activity = this,
+            onPermissionGranted = { fetchLastKnownLocation() },
+            onPermissionDenied = { Log.e("MainActivity", "Location permission denied") }
+        )
 
-        setContent {
-            val navController = rememberNavController()
+        getLastKnownLocation(this) { location ->
+            val deviceLocation = location?.let { LatLng(it.latitude, it.longitude) }
+                ?: LatLng(37.4220936, -122.083922)
 
-            var isSideMenuVisible by remember { mutableStateOf(false) }
-
-            MediaApp(
-                viewModel = viewModel,
-                isSideMenuVisible = isSideMenuVisible,
-                onSideMenuToggle = { isSideMenuVisible = !isSideMenuVisible },
-                onImageSelect = { pickImageLauncher.launch("image/*") },
-                navController = navController,
-                onSaveMediaItem = { title, imagePath -> handleSave(title, imagePath) }
-            )
+            setupContent(deviceLocation)
         }
     }
 
-    private fun checkLocationPermission(): Boolean {
-        return ActivityCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
+    private fun requestMediaPermissions() {
+        val permissions = mutableListOf<String>()
 
-    private fun requestLocationPermission() {
-        requestPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-    }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.READ_MEDIA_IMAGES)
+        } else {
+            permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
 
-    private fun getLastKnownLocation(onLocationReceived: (Location?) -> Unit) {
-        try {
-            if (checkLocationPermission()) {
-                fusedLocationClient.lastLocation
-                    .addOnSuccessListener { location: Location? ->
-                        onLocationReceived(location)
-                    }
-                    .addOnFailureListener { exception ->
-                        Log.e("MainActivity", "Error obtaining location: ${exception.message}")
-                        onLocationReceived(null)
-                    }
-            } else {
-                Log.e("MainActivity", "Location permission not granted")
-                onLocationReceived(null)
-            }
-        } catch (e: SecurityException) {
-            Log.e("MainActivity", "Location permission not granted")
-            onLocationReceived(null)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            permissions.add(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        }
+
+        if (permissions.isNotEmpty()) {
+            requestPermissionsLauncher.launch(permissions.toTypedArray())
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MediaApp(
-    viewModel: MediaViewModel,
-    isSideMenuVisible: Boolean,
-    onSideMenuToggle: () -> Unit,
-    onImageSelect: () -> Unit,
-    navController: NavHostController,
-    onSaveMediaItem: (String, String?) -> Unit,
-) {
-    // val selectedMediaItem by viewModel.selectedItem.collectAsState()
-    val showDeleteDialog by viewModel.showDeleteConfirmDialog.collectAsState()
-    val itemToDelete by viewModel.itemToDelete.collectAsState()
-
-    if (showDeleteDialog) {
-        val item = itemToDelete
-        if (item != null) {
-            DeleteConfirmDialog(
-                itemTitle = item.title,
-                onDismiss = { viewModel.dismissDeleteConfirmation() },
-                onConfirm = { viewModel.confirmDelete() }
-            )
-        }
-    }
-
-    Scaffold(
-        content = { innerPadding ->
-            Box(modifier = Modifier.padding(innerPadding)) {
-                NavHost(
-                    navController = navController,
-                    startDestination = "medien",
-                    modifier = Modifier.padding(innerPadding)
-                ) {
-                    composable("medien") {
-                        MediaItemList(
-                            viewModel = viewModel,
-                            navController = navController,
-                            onImageSelect = onImageSelect,
-                            onSideMenuToggle = onSideMenuToggle,
-                            onSaveMediaItem = onSaveMediaItem
-                        )
-                    }
-                    composable("karte") {
-                        val mediaItems by viewModel.mediaItems.collectAsState()
-                        MapScreen(
-                            mediaItems = mediaItems,
-                            onMenuClick = onSideMenuToggle
-                        )
-                    }
-
-                    composable("readview/{itemId}") { backStackEntry ->
-                        val itemId = backStackEntry.arguments?.getString("itemId")?.toIntOrNull()
-                        MediaReadView(
-                            itemId = itemId,
-                            viewModel = viewModel,
-                            onMenuClick = onSideMenuToggle,
-                            onDelete = {
-                                itemId?.let {
-                                    val item = viewModel.mediaItems.value.find { mediaItem -> mediaItem.id.toInt() == itemId }
-                                    if (item != null) {
-                                        viewModel.requestDeleteConfirmation(item)
-                                    }
-                                }
-                            },
-                            onBack = { navController.popBackStack() }
-                        )
-                    }
-                }
-
-                if (isSideMenuVisible) {
-                    SideMenu(
-                        navController = navController,
-                        onMenuItemClick = { menuItem ->
-                            when (menuItem) {
-                                "karte" -> navController.navigate("karte")
-                                "medien" -> navController.navigate("medien")
-                            }
-                            onSideMenuToggle()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth(0.75f)
-                            .fillMaxHeight()
-                            .background(Color.DarkGray)
-                    )
-                }
-            }
-        }
-    )
 }

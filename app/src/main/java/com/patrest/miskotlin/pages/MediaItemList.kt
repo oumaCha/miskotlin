@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -43,9 +43,9 @@ import coil.compose.rememberAsyncImagePainter
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
+import com.patrest.miskotlin.R
+import com.patrest.miskotlin.data.MediaItem
+import com.patrest.miskotlin.viewmodel.MediaViewModel
 
 
 @OptIn(ExperimentalMaterial3Api::class)

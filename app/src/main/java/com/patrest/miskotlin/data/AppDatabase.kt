@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.data
 
 import androidx.room.Database
 import androidx.room.RoomDatabase

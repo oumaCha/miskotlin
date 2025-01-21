@@ -1,14 +1,17 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.pages
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import coil.compose.rememberAsyncImagePainter
+import com.patrest.miskotlin.R
+import com.patrest.miskotlin.viewmodel.MediaViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,15 +22,15 @@ fun MediaReadView(
     onDelete: () -> Unit,
     onBack: () -> Unit
 ) {
-    val mediaItem = itemId?.let { id -> viewModel.mediaItems.value.find { it.id.toInt() == id } }
 
-    // Überprüfen, ob `mediaItem` gefunden wurde
+    val mediaItem = itemId?.let { id -> viewModel.mediaItems.value.firstOrNull { it.id.toInt() == id } }
+
     if (mediaItem == null) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.LightGray),
-            contentAlignment = androidx.compose.ui.Alignment.Center
+            contentAlignment = Alignment.Center
         ) {
             Text(text = "MediaItem nicht gefunden", color = Color.Black)
         }

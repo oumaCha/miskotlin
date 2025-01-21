@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

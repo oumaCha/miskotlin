@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.components
 
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text

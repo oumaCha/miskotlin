@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.components
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,6 +11,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import com.patrest.miskotlin.R
 
 @Composable
 fun SideMenu(
