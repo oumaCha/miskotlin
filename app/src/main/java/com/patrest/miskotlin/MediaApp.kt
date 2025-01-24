@@ -10,6 +10,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.navigation.NavHostController
@@ -18,10 +20,17 @@ import androidx.navigation.compose.composable
 import com.google.android.gms.maps.model.LatLng
 import com.patrest.miskotlin.components.DeleteConfirmDialog
 import com.patrest.miskotlin.components.SideMenu
+import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.pages.MapScreen
 import com.patrest.miskotlin.pages.MediaItemList
 import com.patrest.miskotlin.pages.MediaReadView
 import com.patrest.miskotlin.viewmodel.MediaViewModel
+
+
+// MediaApp verwaltet die Navigation und merkt sich die zuletzt besuchte Route
+// für korrektes Zurückkehren nach Aktionen.
+
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -31,12 +40,12 @@ fun MediaApp(
     onSideMenuToggle: () -> Unit,
     onImageSelect: () -> Unit,
     navController: NavHostController,
-    onSaveMediaItem: (String, String?) -> Unit,
+    onSaveMediaItem: (String, String?, MediaItem?) -> Unit,
     deviceLocation: LatLng,
 ) {
-    // val selectedMediaItem by viewModel.selectedItem.collectAsState()
     val showDeleteDialog by viewModel.showDeleteConfirmDialog.collectAsState()
     val itemToDelete by viewModel.itemToDelete.collectAsState()
+    val lastVisitedRoute = remember { mutableStateOf<String?>(null) }
 
     if (showDeleteDialog) {
         val item = itemToDelete
@@ -44,7 +53,23 @@ fun MediaApp(
             DeleteConfirmDialog(
                 itemTitle = item.title,
                 onDismiss = { viewModel.dismissDeleteConfirmation() },
-                onConfirm = { viewModel.confirmDelete { navController.popBackStack() } }
+                onConfirm = {
+                    viewModel.confirmDelete { success ->
+                        if (success) {
+                            when (lastVisitedRoute.value) {
+                                "karte" -> navController.navigate("karte") {
+                                    popUpTo("karte") { inclusive = true }
+                                }
+
+                                "medien" -> navController.navigate("medien") {
+                                    popUpTo("medien") { inclusive = true }
+                                }
+
+                                else -> navController.navigate("medien")
+                            }
+                        }
+                    }
+                }
             )
         }
     }
@@ -58,6 +83,7 @@ fun MediaApp(
                     modifier = Modifier.padding(innerPadding)
                 ) {
                     composable("medien") {
+                        lastVisitedRoute.value = "medien"
                         MediaItemList(
                             viewModel = viewModel,
                             navController = navController,
@@ -67,6 +93,7 @@ fun MediaApp(
                         )
                     }
                     composable("karte") {
+                        lastVisitedRoute.value = "karte"
                         MapScreen(
                             viewModel = viewModel,
                             onMenuClick = onSideMenuToggle,

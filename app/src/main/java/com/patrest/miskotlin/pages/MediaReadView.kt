@@ -17,13 +17,14 @@ import com.patrest.miskotlin.viewmodel.MediaViewModel
 @Composable
 fun MediaReadView(
     itemId: Int?,
-    viewModel: MediaViewModel, // Zugriff auf ViewModel für MediaItem-Daten
+    viewModel: MediaViewModel,
     onMenuClick: () -> Unit,
     onDelete: () -> Unit,
     onBack: () -> Unit
 ) {
 
     val mediaItem = itemId?.let { id -> viewModel.mediaItems.value.firstOrNull { it.id.toInt() == id } }
+
 
     if (mediaItem == null) {
         Box(
@@ -39,11 +40,12 @@ fun MediaReadView(
 
     Box {
         Scaffold(
+            containerColor = Color.Black,
             topBar = {
                 TopAppBar(
                     title = { Text(mediaItem.title, color = Color.White) },
                     navigationIcon = {
-                        IconButton(onClick = onMenuClick) { // Toggle the menu
+                        IconButton(onClick = onMenuClick) {
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_sandwich),
                                 contentDescription = "Menu",

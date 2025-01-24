@@ -10,13 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -24,28 +22,24 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter
-import java.text.SimpleDateFormat
-import java.util.Locale
 import androidx.navigation.NavHostController
+import coil.compose.rememberAsyncImagePainter
 import com.patrest.miskotlin.R
+import com.patrest.miskotlin.components.ActionMenuDialog
+import com.patrest.miskotlin.components.MediaItemDialog
 import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.viewmodel.MediaViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,7 +49,7 @@ fun MediaItemList(
     navController: NavHostController,
     onImageSelect: () -> Unit,
     onSideMenuToggle: () -> Unit,
-    onSaveMediaItem: (String, String?) -> Unit
+    onSaveMediaItem: (String, String?, MediaItem?) -> Unit
 ) {
     val mediaItems by viewModel.mediaItems.collectAsState()
     val showActionMenu by viewModel.showActionMenu.collectAsState()
@@ -95,22 +89,16 @@ fun MediaItemList(
                     )
                 }
 
-                if (showEditDialog && actionMenuItem != null) {
-                    EditMediaItemDialog(
-                        item = actionMenuItem!!,
-                        onDismiss = { viewModel.closeDialogs() },
-                        onSave = { updatedItem -> viewModel.saveEditedItem(updatedItem) }
-                    )
-                }
-
-                if (showCreateDialog) {
-                    CreateMediaItemDialog(
-                        defaultTitle = "Media Item $titleCounter",
-                        onDismiss = { viewModel.closeCreateDialog() },
+                if (showEditDialog && actionMenuItem != null  || showCreateDialog) {
+                    MediaItemDialog(
+                        defaultTitle = if (showEditDialog) actionMenuItem!!.title else "Media Item $titleCounter",
+                        mediaItem = if (showEditDialog) actionMenuItem else null,
+                        onDismiss = {
+                            if (showEditDialog) viewModel.closeDialogs() else viewModel.closeCreateDialog()
+                        },
                         onSave = onSaveMediaItem,
                         onImageClick = onImageSelect,
                         selectedImagePath = viewModel.selectedImagePath.collectAsState().value,
-                        clearImagePath = { viewModel.clearSelectedImagePath() }
                     )
                 }
             }
@@ -215,161 +203,6 @@ fun MediaTopBar(onAddClick: () -> Unit, onMenuClick: () -> Unit) {
 }
 
 
-@Composable
-fun ActionMenuDialog(
-    item: MediaItem,
-    onDismiss: () -> Unit,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(text = "Actions for ${item.title}")
-        },
-        text = {
-            Column {
-                TextButton(onClick = onEdit) {
-                    Text("Edit")
-                }
-                TextButton(onClick = onDelete) {
-                    Text("Delete")
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Close")
-            }
-        }
-    )
-}
-
-@Composable
-fun EditMediaItemDialog(
-    item: MediaItem,
-    onDismiss: () -> Unit,
-    onSave: (MediaItem) -> Unit
-) {
-    var editedTitle by remember { mutableStateOf(item.title) }
-
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Edit Media Item") },
-        text = {
-            Column {
-                TextField(
-                    value = editedTitle,
-                    onValueChange = { editedTitle = it },
-                    label = { Text("Title") }
-                )
-
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = {
-                onSave(item.copy(title = editedTitle) )
-
-            }) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-@Composable
-fun CreateMediaItemDialog(
-    defaultTitle: String,
-    onDismiss: () -> Unit,
-    onSave: (String, String?) -> Unit,
-    onImageClick: () -> Unit,
-    selectedImagePath: String?,
-    clearImagePath: () -> Unit
-) {
-    var title by remember { mutableStateOf(defaultTitle) }
-    var showError by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Neues Medium") },
-        text = {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    TextField(
-                        value = title,
-                        onValueChange = {
-                            title = it
-                            showError = it.isBlank()
-                        },
-                        label = { Text("Titel") },
-                        isError = showError,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(
-                        onClick = {
-                            onImageClick()
-                        }
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.baseline_camera),
-                            contentDescription = "Bild auswählen"
-                        )
-                    }
-                }
-
-                if (showError) {
-                    Text(
-                        text = "Titel: Eingabe erforderlich",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                if (selectedImagePath != null) {
-                    Image(
-                        painter = rememberAsyncImagePainter(selectedImagePath),
-                        contentDescription = "Vorschaubild",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
-                            .padding(8.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (title.isNotBlank()) {
-                        onSave(title, selectedImagePath)
-                        clearImagePath()
-                        onDismiss()
-                    } else {
-                        showError = true
-                    }
-                }
-            ) {
-                Text("Erstellen")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen", color = Color.Gray)
-            }
-        }
-    )
-}
 
 
 

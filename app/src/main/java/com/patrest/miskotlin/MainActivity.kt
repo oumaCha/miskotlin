@@ -20,6 +20,7 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import com.patrest.miskotlin.data.AppDatabase
 import com.patrest.miskotlin.data.MIGRATION_1_2
+import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.utils.PermissionUtils
 import com.patrest.miskotlin.utils.PermissionUtils.getLastKnownLocation
 import com.patrest.miskotlin.viewmodel.MediaViewModel
@@ -35,6 +36,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var requestPermissionsLauncher: ActivityResultLauncher<Array<String>>
 
+    // pickImageLauncher öffnet die Galerie. Das wird in der MediaApp mit onImageSelect = { pickImageLauncher.launch("image/*") } weitergegeben.
+    // Nach der Auswahl wird die URI ans ViewModel übergeben,
+    // das das Bild kopiert und den Pfad der Kopie speichert.
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -43,7 +47,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleSave(title: String, imagePath: String?) {
+    // handleSave entscheidet, welche Funktion im ViewModel aufgerufen wird.
+    // Wenn es sich um ein neues Medium handelt, wird es erstellt, und wenn es ein bestehendes Medium ist,
+    // wird es aktualisiert. Die Daten werden dann in der Datenbank gespeichert.
+
+    private fun handleSave(title: String, imagePath: String?, mediaItemToEdit: MediaItem? = null) {
         if (PermissionUtils.checkLocationPermission(this)) {
             getLastKnownLocation(this) { location ->
                 val deviceLatitude = location?.latitude ?: 52.545995
@@ -52,27 +60,30 @@ class MainActivity : ComponentActivity() {
                 val imageLatitude = viewModel.selectedImageLocation.value?.first
                 val imageLongitude = viewModel.selectedImageLocation.value?.second
 
-                Log.d(
-                    "handleSave",
-                    "Device Location: Latitude=$deviceLatitude, Longitude=$deviceLongitude"
-                )
-                Log.d(
-                    "handleSave",
-                    "Image Location: Latitude=$imageLatitude, Longitude=$imageLongitude"
-                )
+                if (mediaItemToEdit != null) {
+                    val updatedItem = mediaItemToEdit.copy(
+                        title = title,
+                        source = imagePath ?: mediaItemToEdit.source,
+                        latitude = imageLatitude ?: mediaItemToEdit.latitude,
+                        longitude = imageLongitude ?: mediaItemToEdit.longitude
+                    )
+                    viewModel.saveEditedItem(updatedItem)
+                } else {
+                    viewModel.addNewItem(
+                        title,
+                        imagePath,
+                        latitude = imageLatitude ?: deviceLatitude,
+                        longitude = imageLongitude ?: deviceLongitude
+                    )
+                }
 
-                viewModel.addNewItem(
-                    title,
-                    imagePath,
-                    latitude = imageLatitude ?: deviceLatitude,
-                    longitude = imageLongitude ?: deviceLongitude
-                )
                 viewModel.clearSelectedImagePath()
             }
         } else {
             PermissionUtils.requestLocationPermission(this)
         }
     }
+
 
     private fun setupContent(deviceLocation: LatLng) {
         setContent {
@@ -86,7 +97,9 @@ class MainActivity : ComponentActivity() {
                 onSideMenuToggle = { isSideMenuVisible = !isSideMenuVisible },
                 onImageSelect = { pickImageLauncher.launch("image/*") },
                 navController = navController,
-                onSaveMediaItem = { title, imagePath -> handleSave(title, imagePath) },
+                onSaveMediaItem = { title, imagePath, mediaItemToEdit ->
+                    handleSave(title, imagePath, mediaItemToEdit)
+                },
                 deviceLocation = deviceLocation
             )
         }
@@ -95,7 +108,10 @@ class MainActivity : ComponentActivity() {
     private fun fetchLastKnownLocation() {
         getLastKnownLocation(this) { location ->
             if (location != null) {
-                Log.d("MainActivity", "Latitude: ${location.latitude}, Longitude: ${location.longitude}")
+                Log.d(
+                    "MainActivity",
+                    "Latitude: ${location.latitude}, Longitude: ${location.longitude}"
+                )
             } else {
                 Toast.makeText(this, "Failed to fetch location", Toast.LENGTH_SHORT).show()
             }
@@ -138,18 +154,6 @@ class MainActivity : ComponentActivity() {
             ViewModelFactory(db.mediaItemDao())
         )[MediaViewModel::class.java]
 
-        lifecycleScope.launch {
-            viewModel.mediaItemsWithLocation.collectLatest { mediaList ->
-                Log.d("MainActivity", "Loaded Media Items with Location: $mediaList")
-            }
-        }
-
-        lifecycleScope.launch {
-            viewModel.mediaItems.collectLatest { mediaList ->
-                Log.d("MainActivity", "Loaded Media Items: $mediaList")
-            }
-        }
-
         PermissionUtils.requestLocationPermission(
             activity = this,
             onPermissionGranted = { fetchLastKnownLocation() },
@@ -158,7 +162,7 @@ class MainActivity : ComponentActivity() {
 
         getLastKnownLocation(this) { location ->
             val deviceLocation = location?.let { LatLng(it.latitude, it.longitude) }
-                ?: LatLng(37.4220936, -122.083922)
+                ?: LatLng(52.5463, 13.3547)
 
             setupContent(deviceLocation)
         }

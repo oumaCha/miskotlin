@@ -1,22 +1,18 @@
 package com.patrest.miskotlin.viewmodel
 
 import android.content.Context
-import androidx.exifinterface.media.ExifInterface
 import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.drew.imaging.ImageMetadataReader
+import com.drew.metadata.exif.GpsDirectory
 import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.data.MediaItemDao
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
-import com.drew.imaging.ImageMetadataReader
-import com.drew.metadata.exif.GpsDirectory
-import com.drew.metadata.Directory
 import java.io.InputStream
-import com.drew.metadata.Metadata
-import com.drew.metadata.Tag
 
 
 class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
@@ -78,26 +74,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         }
     }
 
-    fun extractLocationFromImage2(imagePath: String): Pair<Double, Double>? {
-        return try {
-            val exif = ExifInterface(imagePath)
-            val latitude = exif.latLong?.getOrNull(0)
-            val longitude = exif.latLong?.getOrNull(1)
-
-            Log.d("extractLocationFromImage", "Exif Data: ${exif.latLong}")
-            Log.d("extractLocationFromImage", "Latitude: $latitude, Longitude: $longitude")
-
-
-            if (latitude != null && longitude != null) {
-                latitude to longitude
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.e("ViewModel", "Error extracting location from image: ${e.message}")
-            null
-        }
-    }
     fun extractLocationFromImage(context: Context, imageUri: Uri): Pair<Double?, Double?>? {
         return try {
             val inputStream: InputStream? = context.contentResolver.openInputStream(imageUri)
@@ -123,26 +99,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
             null
         }
     }
-    fun logAllMetadata(filePath: String) {
-        try {
-            val file = File(filePath)
-            val metadata: Metadata = ImageMetadataReader.readMetadata(file)
-
-            for (directory: Directory in metadata.directories) {
-                Log.d("MetadataExtractor", "Directory: ${directory.name}")
-                for (tag: Tag in directory.tags) {
-                    Log.d("MetadataExtractor", "Tag: ${tag.tagName}, Value: ${tag.description}")
-                }
-                if (directory.hasErrors()) {
-                    for (error in directory.errors) {
-                        Log.e("MetadataExtractor", "Error in directory ${directory.name}: $error")
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e("MetadataExtractor", "Error reading metadata: ${e.message}", e)
-        }
-    }
     fun addNewItem(
         title: String,
         imagePath: String? = null,
@@ -152,10 +108,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
         viewModelScope.launch {
             val size = (100..300).random()
             val finalPath = imagePath ?: "https://picsum.photos/$size/$size"
-
-            Log.d("addNewItem", "Image Path: $imagePath")
-            Log.d("addNewItem", "Final Path: $finalPath")
-
 
             val imageLocation = null
 
@@ -172,6 +124,10 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
             loadMediaItems()
         }
     }
+
+    // selectImage kopiert das ausgewählte Bild in den App-Speicher,
+    // liest die Metadaten (z. B. Standort) und speichert den Pfad und die Koordinaten.
+
     fun selectImage(context: Context, imageUri: Uri) {
         viewModelScope.launch {
             try {
@@ -185,7 +141,6 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
                     }
                 }
 
-                logAllMetadata(file.absolutePath)
                 val location = extractLocationFromImage(context, Uri.fromFile(file))
                 val latitude = location?.first
                 val longitude = location?.second
