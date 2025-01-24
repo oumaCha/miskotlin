@@ -36,6 +36,7 @@ fun MediaItemDialog(
     mediaItem: MediaItem? = null,
     onDismiss: () -> Unit,
     onSave: (String, String?, MediaItem?) -> Unit,
+    onDelete: (() -> Unit)? = null,
     onImageClick: () -> Unit,
     selectedImagePath: String?
 ) {
@@ -112,8 +113,14 @@ fun MediaItemDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
+            if (mediaItem != null && onDelete != null) {
+                TextButton(onClick = onDelete) {
+                    Text("Löschen")
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("Abbrechen")
+                }
             }
         }
     )

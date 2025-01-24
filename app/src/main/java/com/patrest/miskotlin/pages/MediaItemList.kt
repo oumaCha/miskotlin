@@ -97,6 +97,7 @@ fun MediaItemList(
                             if (showEditDialog) viewModel.closeDialogs() else viewModel.closeCreateDialog()
                         },
                         onSave = onSaveMediaItem,
+                        onDelete = {  viewModel.requestDeleteConfirmation(actionMenuItem!!) },
                         onImageClick = onImageSelect,
                         selectedImagePath = viewModel.selectedImagePath.collectAsState().value,
                     )
