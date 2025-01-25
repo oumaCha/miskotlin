@@ -12,7 +12,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import androidx.room.Room
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -20,13 +19,12 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.LatLng
 import com.patrest.miskotlin.data.AppDatabase
 import com.patrest.miskotlin.data.MIGRATION_1_2
+import com.patrest.miskotlin.data.MIGRATION_2_3
 import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.utils.PermissionUtils
 import com.patrest.miskotlin.utils.PermissionUtils.getLastKnownLocation
 import com.patrest.miskotlin.viewmodel.MediaViewModel
 import com.patrest.miskotlin.viewmodel.ViewModelFactory
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -51,7 +49,12 @@ class MainActivity : ComponentActivity() {
     // Wenn es sich um ein neues Medium handelt, wird es erstellt, und wenn es ein bestehendes Medium ist,
     // wird es aktualisiert. Die Daten werden dann in der Datenbank gespeichert.
 
-    private fun handleSave(title: String, imagePath: String?, mediaItemToEdit: MediaItem? = null) {
+    private fun handleSave(
+        title: String,
+        imagePath: String?,
+        mediaItemToEdit: MediaItem? = null,
+        isRemote: Boolean = false // Adicionado isRemote
+    ) {
         if (PermissionUtils.checkLocationPermission(this)) {
             getLastKnownLocation(this) { location ->
                 val deviceLatitude = location?.latitude ?: 52.545995
@@ -65,7 +68,8 @@ class MainActivity : ComponentActivity() {
                         title = title,
                         source = imagePath ?: mediaItemToEdit.source,
                         latitude = imageLatitude ?: mediaItemToEdit.latitude,
-                        longitude = imageLongitude ?: mediaItemToEdit.longitude
+                        longitude = imageLongitude ?: mediaItemToEdit.longitude,
+                        isRemote = mediaItemToEdit.isRemote
                     )
                     viewModel.saveEditedItem(updatedItem)
                 } else {
@@ -73,7 +77,8 @@ class MainActivity : ComponentActivity() {
                         title,
                         imagePath,
                         latitude = imageLatitude ?: deviceLatitude,
-                        longitude = imageLongitude ?: deviceLongitude
+                        longitude = imageLongitude ?: deviceLongitude,
+                        isRemote = isRemote
                     )
                 }
 
@@ -83,7 +88,6 @@ class MainActivity : ComponentActivity() {
             PermissionUtils.requestLocationPermission(this)
         }
     }
-
 
     private fun setupContent(deviceLocation: LatLng) {
         setContent {
@@ -97,8 +101,8 @@ class MainActivity : ComponentActivity() {
                 onSideMenuToggle = { isSideMenuVisible = !isSideMenuVisible },
                 onImageSelect = { pickImageLauncher.launch("image/*") },
                 navController = navController,
-                onSaveMediaItem = { title, imagePath, mediaItemToEdit ->
-                    handleSave(title, imagePath, mediaItemToEdit)
+                onSaveMediaItem = { title, imagePath, mediaItemToEdit, isRemote ->
+                    handleSave(title, imagePath, mediaItemToEdit, isRemote)
                 },
                 deviceLocation = deviceLocation
             )
@@ -147,7 +151,7 @@ class MainActivity : ComponentActivity() {
             applicationContext,
             AppDatabase::class.java,
             "media-database"
-        ).addMigrations(MIGRATION_1_2).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
 
         viewModel = ViewModelProvider(
             this,

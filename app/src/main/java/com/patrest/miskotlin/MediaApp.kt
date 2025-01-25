@@ -40,7 +40,7 @@ fun MediaApp(
     onSideMenuToggle: () -> Unit,
     onImageSelect: () -> Unit,
     navController: NavHostController,
-    onSaveMediaItem: (String, String?, MediaItem?) -> Unit,
+    onSaveMediaItem: (String, String?, MediaItem?, Boolean) -> Unit,
     deviceLocation: LatLng,
 ) {
     val showDeleteDialog by viewModel.showDeleteConfirmDialog.collectAsState()

@@ -5,8 +5,10 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.drew.imaging.ImageMetadataReader
 import com.drew.metadata.exif.GpsDirectory
+import com.patrest.miskotlin.data.FilterType
 import com.patrest.miskotlin.data.MediaItem
 import com.patrest.miskotlin.data.MediaItemDao
 import kotlinx.coroutines.flow.*
@@ -18,7 +20,13 @@ import java.io.InputStream
 class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
 
     private val _mediaItems = MutableStateFlow<List<MediaItem>>(emptyList())
-    val mediaItems: StateFlow<List<MediaItem>> get() = _mediaItems
+    // val mediaItems: StateFlow<List<MediaItem>> get() = _mediaItems
+    private val _filteredMediaItems = MutableStateFlow<List<MediaItem>>(emptyList())
+    val mediaItems: StateFlow<List<MediaItem>> get() = _filteredMediaItems
+
+
+    val selectedFilter = MutableStateFlow(FilterType.ALL)
+
 
     val mediaItemsWithLocation: StateFlow<List<MediaItem>> = _mediaItems.map { list ->
         list.filter { it.latitude != null && it.longitude != null && it.latitude != 0.0 && it.longitude != 0.0 }
@@ -52,8 +60,12 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     val selectedImageLocation: StateFlow<Pair<Double?, Double?>?> get() = _selectedImageLocation
 
 
+
+
+
     init {
         loadMediaItems()
+        filterMediaItems(FilterType.ALL)
     }
 
     fun loadMediaItems() {
@@ -62,11 +74,12 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
                 val items = dao.getAllMediaItems()
                 _mediaItems.value = items.map { mediaItem ->
                     mediaItem.copy(
-                        latitude = mediaItem.latitude ?: 52.545995, // Default latitude
-                        longitude = mediaItem.longitude ?: 13.351148 // Default longitude
+                        latitude = mediaItem.latitude ?: 52.545995,
+                        longitude = mediaItem.longitude ?: 13.351148
                     )
                 }
                 _titleCounter.value = _mediaItems.value.size + 1
+                filterMediaItems(FilterType.ALL)
                 Log.d("ViewModel", "Loaded media items: ${_mediaItems.value}")
             } catch (e: Exception) {
                 Log.e("ViewModel", "Failed to load media items: ${e.message}", e)
@@ -99,32 +112,58 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
             null
         }
     }
+
+    fun filterMediaItems(filterType: FilterType) {
+        viewModelScope.launch {
+            val filteredItems = when (filterType) {
+                FilterType.ALL -> _mediaItems.value
+                FilterType.LOCAL -> _mediaItems.value.filter { !it.isRemote }
+                FilterType.REMOTE -> _mediaItems.value.filter { it.isRemote }
+            }
+            _filteredMediaItems.value = filteredItems
+            selectedFilter.value = filterType
+        }
+    }
+
     fun addNewItem(
         title: String,
         imagePath: String? = null,
         latitude: Double = 52.545995,
-        longitude: Double = 13.351148
+        longitude: Double = 13.351148,
+        isRemote: Boolean = false
     ) {
         viewModelScope.launch {
-            val size = (100..300).random()
-            val finalPath = imagePath ?: "https://picsum.photos/$size/$size"
-
-            val imageLocation = null
-
-            val location = imageLocation ?: (latitude to longitude)
-
-            val newItem = MediaItem(
-                title = title,
-                source = finalPath,
-                createdDate = System.currentTimeMillis(),
-                latitude = location.first,
-                longitude = location.second
-            )
-            dao.insert(newItem)
-            loadMediaItems()
+            try {
+                val finalPath = imagePath ?: ""
+                Log.d("addNewItem", "Title: $title, ImagePath: $imagePath, IsRemote: $isRemote")
+                val newItem = MediaItem(
+                    title = title,
+                    source = finalPath,
+                    createdDate = System.currentTimeMillis(),
+                    latitude = latitude,
+                    longitude = longitude,
+                    isRemote = isRemote
+                )
+                dao.insert(newItem)
+                loadMediaItems()
+            } catch (e: Exception) {
+                Log.e("addNewItem", "Error: ${e.message}")
+            }
         }
     }
 
+
+    fun saveEditedItem(updatedItem: MediaItem) {
+        viewModelScope.launch {
+            try {
+                dao.update(updatedItem)
+                _mediaItems.value = _mediaItems.value.map { if (it.id == updatedItem.id) updatedItem else it }
+                // closeDialogs()
+            } catch (e: Exception) {
+                Log.e("ViewModel", "Error saving edited item: ${e.message}", e)
+            }
+        }
+    }
     // selectImage kopiert das ausgewählte Bild in den App-Speicher,
     // liest die Metadaten (z. B. Standort) und speichert den Pfad und die Koordinaten.
 
@@ -203,17 +242,7 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
     }
 
 
-    fun saveEditedItem(updatedItem: MediaItem) {
-        viewModelScope.launch {
-            try {
-                dao.update(updatedItem)
-                _mediaItems.value = _mediaItems.value.map { if (it.id == updatedItem.id) updatedItem else it }
-                closeDialogs()
-            } catch (e: Exception) {
-                Log.e("ViewModel", "Error saving edited item: ${e.message}", e)
-            }
-        }
-    }
+
 
     fun openEditDialog() {
         _showActionMenu.value = false

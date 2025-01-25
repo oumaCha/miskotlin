@@ -35,7 +35,7 @@ fun MediaItemDialog(
     defaultTitle: String,
     mediaItem: MediaItem? = null,
     onDismiss: () -> Unit,
-    onSave: (String, String?, MediaItem?) -> Unit,
+    onSave: (String, String?, MediaItem?, Boolean) -> Unit,
     onDelete: (() -> Unit)? = null,
     onImageClick: () -> Unit,
     selectedImagePath: String?
@@ -43,6 +43,7 @@ fun MediaItemDialog(
     var title by remember { mutableStateOf(mediaItem?.title ?: defaultTitle) }
     var showError by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+    var isRemote by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -89,9 +90,23 @@ fun MediaItemDialog(
                     )
                 }
 
+                if (mediaItem == null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                    ) {
+                        Text(text = "Remote speichern")
+                        Spacer(modifier = Modifier.weight(1f))
+                        androidx.compose.material3.Switch(
+                            checked = isRemote,
+                            onCheckedChange = { isRemote = it }
+                        )
+                    }
+                }
+
                 if (showError) {
                     Text(
-                        text = "Titel erforderlich",
+                        text = if (selectedImagePath == null && mediaItem?.source == null) "Bild erforderlich" else "Titel erforderlich",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -101,8 +116,8 @@ fun MediaItemDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        onSave(title, selectedImagePath ?: mediaItem?.source, mediaItem)
+                    if (title.isNotBlank() && (selectedImagePath != null)) {
+                        onSave(title, selectedImagePath, mediaItem, isRemote)
                         onDismiss()
                     } else {
                         showError = true
@@ -125,6 +140,7 @@ fun MediaItemDialog(
         }
     )
 }
+
 
 
 
