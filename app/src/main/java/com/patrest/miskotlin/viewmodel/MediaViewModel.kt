@@ -226,6 +226,9 @@ class MediaViewModel(private val dao: MediaItemDao) : ViewModel() {
                 try {
                     dao.delete(item)
                     _mediaItems.value = _mediaItems.value.filterNot { it.id == item.id }
+
+                    filterMediaItems(selectedFilter.value)
+
                     Log.d("ViewModel", "Item deleted: ${item.title}")
                     onResult(true)
                 } catch (e: Exception) {
