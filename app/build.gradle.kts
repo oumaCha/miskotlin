@@ -11,12 +11,22 @@ android {
 
     defaultConfig {
         applicationId = "com.patrest.miskotlin"
-        minSdk = 24
+        minSdk = 29
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField(
+            "String",
+            "MAPS_API_KEY",
+            "\"${project.properties["MAPS_API_KEY"] ?: ""}\""
+        )
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
@@ -40,10 +50,13 @@ android {
     buildFeatures {
         compose = true
     }
+
 }
 
 dependencies {
 
+    implementation (libs.androidx.exifinterface)
+    implementation (libs.metadata.extractor)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -53,7 +66,13 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.navigation.compose)
+    implementation (libs.play.services.maps)
+    implementation (libs.maps.compose)
+    implementation(libs.play.services.location)
+    implementation(libs.androidx.navigation.runtime.ktx)
     testImplementation(libs.junit)
+    implementation (libs.osmdroid.android)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -62,10 +81,12 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 
-    // Dependências do Room
+    // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.room.compiler)
+
+
 
     annotationProcessor(libs.dagger.compiler)
     ksp(libs.dagger.compiler)

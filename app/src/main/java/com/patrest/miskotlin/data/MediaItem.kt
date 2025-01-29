@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
@@ -8,5 +8,8 @@ data class MediaItem(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
     val title: String,
     val source: String,
-    val createdDate: Long = System.currentTimeMillis()
+    val createdDate: Long = System.currentTimeMillis(),
+    val latitude: Double?,
+    val longitude: Double?,
+    val isRemote: Boolean
 )

@@ -1,4 +1,4 @@
-package com.patrest.miskotlin
+package com.patrest.miskotlin.data
 
 import androidx.room.Dao
 import androidx.room.Insert
@@ -18,4 +18,6 @@ interface MediaItemDao {
     suspend fun update(mediaItem: MediaItem)
     @Delete
     suspend fun delete(mediaItem: MediaItem)
+
+
 }
